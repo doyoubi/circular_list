@@ -8,24 +8,40 @@
 #include "debug.h"
 
 
-// there are two different iterators in this container, "loop_iterator" and the common one "iterator"
-// the differences between them are how to treat the end() iterator
-// for the iterator :
-// the end() is actually a nullptr,
-// it's merely a tag used in the guard (iter != end()) to stop the loop 
-// after accessing the node immediately previous to head.
-// to achieve this, we also change iter to nullptr when it try to access the head for the second time
+// There are two different iterators in this container, "loop_iterator" and the common one "common_iterator"
+// The differences between them are how to treat the end() iterator
+// and their behavior when a iter increment to end().
+
+// for the common_iterator :
+// The end() is actually a nullptr,
+// It's merely a tag used in the guard (iter != end()) to stop the loop
+// after accessing the node immediately previous to head,
+// or a tag indicating element not found when using search function such as find, find_if.
+// To achieve this, we change iter to nullptr after it accessing the node immediately before the head node.
+
 // for the loop_iterator :
-// end() always equals to begin(),
-// loop_iterator can be used to iterate from tail to head FORWARD while iterator will stop at end()
+// end() always equals to begin().
+// loop_iterator can be used to iterate from tail to head FORWARD while common_iterator will stop at end().
+// But loop_end CAN NOT used to indicate that not being able to find someting in the container.
+// When circular_list::find_if(loop_iterator version) can't find a element in container,
+// it return null loop_iterator which is NOT the same as loop_end.
+// And extra operator==() will be provided to let null loop_iterator equals end() of common_iterator
+
 // function :
-// as a result, we have to apply two sets of algorithm function for this two different iterator.
-// the functions dealing with iterator work just the same as the STL function with a iter != end guard,
-// while the functions dealing with loop_iterator, for example do_something(_start, _terminal),
-// will not stop immediately after called when _start == _terminal,
+// For this two kind of iterator, we must be careful when using function for them.
+// The STL algorithm function work fine for common_iterator.
+// The (iter != end) guard will stop the loop correctly and end() can be used to indicate element not found.
+// But when using loop_iter in such function with (iter != end) guard,
+// find(_begin, _end, value) for example, 
+// the loop will not start when _begin == _end, of which using loop_begin() and loop_end() is a case.
+// And of course, when _begin != _end, common stl algorithm can be used perfectly for loop_iterator,
+// and the iter will not stop even it come cross end().
+// So I provide a customed find_if for loop_iterator to deal with the _begin == _end case,
+// which is a member of circular_list.
+// It will not stop the loop immediately after called when _start == _terminal,
 // but will stop when iter try to access the _start for the second time.
-// and of course, when _start != _terminal, common stl algorithm can be used perfectly for loop_iterator,
-// and the iter will not stop even it come cross end()
+
+
 namespace dyb
 {
     using std::function;
@@ -35,29 +51,29 @@ namespace dyb
     {
         EleType _ele;
         double_linked_list_node * prev, *next;
-        double_linked_list_node(EleType element)
+        double_linked_list_node(const EleType & element)
             : _ele(element), prev(nullptr), next(nullptr)
         {
         }
     };
 
     template<class EleType>
-    class iterator : public std::iterator<std::forward_iterator_tag, EleType>
+    class common_iterator : public std::iterator<std::forward_iterator_tag, EleType>
     {
     public:
         typedef double_linked_list_node<EleType> node;
 
-        explicit iterator(const node * head_node)
+        explicit common_iterator(const node * head_node)
             : _ptr(nullptr), _head(head_node)
         {
         }
 
-        iterator(const node * head_node, node * p_node)
+        common_iterator(const node * head_node, node * p_node)
             : _ptr(p_node), _head(head_node)
         {
         }
 
-        const iterator & operator ++ ()
+        common_iterator & operator ++ ()
         {
             // _ptr should not be null
             if (_ptr->next == _head) _ptr = nullptr;
@@ -65,21 +81,20 @@ namespace dyb
             return *this;
         }
 
-        const iterator operator ++ (int)
+        common_iterator operator ++ (int)
         {
-            iterator temp(*this);
+            common_iterator temp(*this);
             if (_ptr->next == _head) _ptr = nullptr;
             else _ptr = _ptr->next;
             return temp;
         }
 
-        bool operator == (iterator other)
+        bool operator == (common_iterator other)
         {
-            return _ptr == other._ptr
-                && _head == other._head;
+            return _ptr == other._ptr; // _head must be the same
         }
 
-        bool operator != (iterator other)
+        bool operator != (common_iterator other)
         {
             return !(*this == other);
         }
@@ -101,7 +116,7 @@ namespace dyb
 
     private:
         node * _ptr;
-        const node * const _head;
+        const node * _head;
     };
 
     template<class EleType>
@@ -118,12 +133,14 @@ namespace dyb
         {
         }
 
-        const loop_iterator & operator ++ () // should not be called when _ptr == nullptr
+        loop_iterator & operator ++ () // should not be called when _ptr == nullptr
         {
             _ptr = _ptr->next;
+            //cout << _ptr->_ele << ' ' << _ptr->next->_ele << endl;
+            return *this;
         }
 
-        const loop_iterator operator++ (int)
+        loop_iterator operator++ (int)
         {
             node * temp = _ptr;
             _ptr = _ptr->next;
@@ -157,13 +174,39 @@ namespace dyb
         node * _ptr;
     };
 
-    // both are not implemented now and I use pointer instead
+    // comparasion between common_iterator and loop_iterator
+    template<class EleType>
+    bool operator == (const common_iterator<EleType> & lhs, const loop_iterator<EleType> & rhs)
+    {
+        return lhs.get() == rhs.get();
+    }
+
+    template<class EleType>
+    bool operator == (const loop_iterator<EleType> & lhs, const common_iterator<EleType> & rhs)
+    {
+        return rhs == lhs;
+    }
+
+    template<class EleType>
+    bool operator != (const common_iterator<EleType> & lhs, const loop_iterator<EleType> & rhs)
+    {
+        return lhs.get() != rhs.get();
+    }
+
+    template<class EleType>
+    bool operator != (const loop_iterator<EleType> & lhs, const common_iterator<EleType> & rhs)
+    {
+        return rhs != lhs;
+    }
+
+    // circular_list
     template<class EleType>
     class circular_list
     {
     public:
         typedef double_linked_list_node<EleType> node;
-        typedef iterator<EleType> common_iter;
+        typedef common_iterator<EleType> iterator;
+        typedef common_iterator<EleType> common_iter;
         typedef loop_iterator<EleType> loop_iter;
 
         common_iter insert(common_iter location, const EleType & element)
@@ -172,11 +215,11 @@ namespace dyb
         }
         common_iter erase(common_iter location)
         {
-            return common_iter(erase(location.get()));
+            return common_iter(head, erase(location.get()));
         }
         common_iter find_if(common_iter _begin, common_iter _end, function<bool(const EleType & e)> pred)
         {
-            return common_iter(std::find_if(_begin, _end, pred));
+            return std::find_if(_begin, _end, pred);
         }
         bool exist(common_iter iter)
         {
@@ -205,12 +248,17 @@ namespace dyb
         common_iter end() { return common_iter(head, nullptr); }
         loop_iter loop_begin() { return loop_iter(head); }
         loop_iter loop_end() { return loop_iter(head); }
+        circular_list() = default;
+        ~circular_list();
     private:
         node * insert(node * location, const EleType & element);
         node * erase(node * location);
         // return nullptr when not found
         node * find_if(node * _begin, node * _end, function<bool(const EleType &)> pred);
         bool exist(node * p_node);
+
+        circular_list(const circular_list & other) = delete;
+        void operator = (const circular_list & other) = delete;
 
         node * head = nullptr;
         int _size = 0;
@@ -224,7 +272,7 @@ namespace dyb
         if (head == nullptr)
         {
             DEBUGCHECK(location == nullptr,
-                "circular_list is empty but location is not nullptr");
+                "circular_list::insert: circular_list is empty but location is not nullptr");
             head = new _MyNode(element);
             head->next = head;
             head->prev = head;
@@ -233,7 +281,7 @@ namespace dyb
         }
         else if (location != nullptr)
         {
-            DEBUGCHECK(exist(location), "location is not in the circular_list");
+            DEBUGCHECK(exist(location), "circular_list::insert: location is not in the circular_list");
             _MyNode * left = location->prev;
             _MyNode * p = new _MyNode(element);
             left->next = p;
@@ -262,8 +310,8 @@ namespace dyb
     typename circular_list<EleType>::node * circular_list<EleType>::erase(
         typename circular_list<EleType>::node * location)
     {
-        DEBUGCHECK(head != nullptr, "erase a node on a empty circular_list");
-        DEBUGCHECK(exist(location), "location is not in the circular_list");
+        DEBUGCHECK(head != nullptr, "circular_list::erase: erase a node on a empty circular_list");
+        DEBUGCHECK(exist(location), "circular_list::erase: location is not in the circular_list");
         typename circular_list<EleType>::node * next = location->next;
         location->prev->next = location->next;
         location->next->prev = location->prev;
@@ -272,7 +320,7 @@ namespace dyb
         else if (head == location) head = head->next;
         delete location;
         if (_size == 0) return nullptr;
-        else next;
+        else return next;
     }
 
     // work for loop_iterator
@@ -300,8 +348,23 @@ namespace dyb
         {
             if (p == p_node) return true;
             p = p->next;
-        } while (p == head);
+        } while (p != head);
         return false;
+    }
+
+    template<class EleType>
+    circular_list<EleType>::~circular_list()
+    {
+        typedef circular_list<EleType>::node _MyNode;
+        if (head == nullptr) return;
+        head->prev->next = nullptr;
+        _MyNode * p = head;
+        while (p != nullptr)
+        {
+            _MyNode * temp = p;
+            p = p->next;
+            delete temp;
+        }
     }
 
 }

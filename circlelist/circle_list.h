@@ -1,6 +1,7 @@
 #ifndef DYB_CIRCLE_LIST
 #define DYB_CIRCLE_LIST
 
+#include <initializer_list>
 #include <functional>
 #include <algorithm>
 #include <iterator>
@@ -250,6 +251,13 @@ namespace dyb
         loop_iter loop_end() { return loop_iter(head); }
         circular_list() = default;
         ~circular_list();
+
+        // helper function
+        circular_list(std::initializer_list<EleType> _initList)
+        {
+            for (auto & ele : _initList)
+                insert(nullptr, ele);
+        }
     private:
         node * insert(node * location, const EleType & element);
         node * erase(node * location);
@@ -365,6 +373,27 @@ namespace dyb
             p = p->next;
             delete temp;
         }
+    }
+
+
+    // customed algorithm for loop_iterator
+    template<class EleType, class Pred>
+    typename loop_iterator<EleType> adjacent_find(
+        loop_iterator<EleType> first, 
+        loop_iterator<EleType> last,
+        Pred pred)
+    {
+        cout << "dyb version" << endl;
+        bool tag = first == last;
+        auto next = first; ++next;
+        while (tag || first != last)
+        {
+            if (pred(*first, *next)) return first;
+            ++first;
+            ++next;
+            tag = false;
+        }
+        return typename loop_iterator<EleType>(nullptr);
     }
 
 }

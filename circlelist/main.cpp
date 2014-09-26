@@ -8,6 +8,7 @@
 using std::cout;
 using std::endl;
 using std::list;
+using std::equal;
 using std::begin;
 using std::end;
 using dyb::debugCheck;
@@ -15,6 +16,7 @@ using dyb::circular_list;
 
 #define TEST(expression) DEBUGCHECK(expression, "test failed")
 
+// core function
 void test_exist()
 {
     using std::equal;
@@ -157,14 +159,42 @@ void test_erase_loop_iter()
     TEST(cl.size() == 0);
 }
 
+// helper function
+void test_constructor()
+{
+    circular_list<int> cl = { 0, 1, 2 };
+    TEST(equal(begin(cl), end(cl), begin({ 0, 1, 2 })));
+}
+
+void test_adjacent_find()
+{
+    circular_list<int> cl;
+    for (int i = 0; i < 3; i++)
+        cl.insert(end(cl), i);
+    TEST(equal(begin(cl), end(cl), begin({ 0, 1, 2 })));
+
+    auto lt = [](int first, int next) { return first > next; };
+    TEST(*dyb::adjacent_find(cl.loop_begin(), cl.loop_end(), lt) == 2);
+    TEST(dyb::adjacent_find(cl.loop_begin(), cl.loop_end(), lt) == ++(++cl.loop_begin()));
+    auto f = [](int first, int next) { return first == 1 && next == 2; };
+    TEST(*dyb::adjacent_find(cl.loop_begin(), cl.loop_end(), f) == 1);
+    TEST(dyb::adjacent_find(cl.loop_begin(), cl.loop_end(), f) == ++cl.loop_begin());
+}
+
 int main()
 {
+    // core function
     test_exist();
     test_find_if();
     test_insert();
     test_insert_loop_iter();
     test_erase();
     test_erase_loop_iter();
+
+    // helper function
+    test_constructor();
+    test_adjacent_find();
+
     cout << "all tests passed" << endl;
     return 0;
 }

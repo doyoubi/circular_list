@@ -210,6 +210,60 @@ namespace dyb
         typedef common_iterator<EleType> common_iter;
         typedef loop_iterator<EleType> loop_iter;
 
+        // helper function
+        circular_list(std::initializer_list<EleType> _initList)
+        {
+            for (auto & ele : _initList)
+            {
+                insert(nullptr, ele);
+            }
+        }
+
+        // since const iterator is not implemented so use non const reference
+        circular_list(circular_list & other)
+            : head(nullptr), _size(other._size)
+        {
+            for (auto & ele : other)
+            {
+                insert(nullptr, ele);
+            }
+        }
+
+        // move constructor
+        circular_list(circular_list && other)
+            : head(other.head), _size(other._size)
+        {
+            other.head = nullptr;
+            other._size = 0;
+        }
+
+        circular_list & operator = (circular_list & other)
+        {
+            clear();
+            _size = other._size;
+            for (auto & ele : other)
+            {
+                insert(nullptr, ele);
+            }
+            return *this;
+        }
+
+        // move assignment
+        circular_list & operator = (circular_list && other)
+        {
+            clear();
+            head = other.head;
+            other.head = nullptr;
+            _size = other._size;
+            other._size = 0;
+            return *this;
+        }
+
+        circular_list::~circular_list()
+        {
+            clear();
+        }
+
         common_iter insert(common_iter location, const EleType & element)
         {
             return common_iter(head, insert(location.get(), element));
@@ -244,29 +298,32 @@ namespace dyb
             return exist(iter.get());
         }
 
+        void clear()
+        {
+            if (head == nullptr) return;
+            head->prev->next = nullptr;
+            node * p = head;
+            while (p != nullptr)
+            {
+                node * temp = p;
+                p = p->next;
+                delete temp;
+            }
+            _size = 0;
+        }
         size_t size() const { return _size; }
         common_iter begin() { return common_iter(head, head); }
         common_iter end() { return common_iter(head, nullptr); }
         loop_iter loop_begin() { return loop_iter(head); }
         loop_iter loop_end() { return loop_iter(head); }
         circular_list() = default;
-        ~circular_list();
 
-        // helper function
-        circular_list(std::initializer_list<EleType> _initList)
-        {
-            for (auto & ele : _initList)
-                insert(nullptr, ele);
-        }
     private:
         node * insert(node * location, const EleType & element);
         node * erase(node * location);
         // return nullptr when not found
         node * find_if(node * _begin, node * _end, function<bool(const EleType &)> pred);
         bool exist(node * p_node);
-
-        circular_list(const circular_list & other) = delete;
-        void operator = (const circular_list & other) = delete;
 
         node * head = nullptr;
         int _size = 0;
@@ -360,21 +417,6 @@ namespace dyb
         return false;
     }
 
-    template<class EleType>
-    circular_list<EleType>::~circular_list()
-    {
-        typedef circular_list<EleType>::node _MyNode;
-        if (head == nullptr) return;
-        head->prev->next = nullptr;
-        _MyNode * p = head;
-        while (p != nullptr)
-        {
-            _MyNode * temp = p;
-            p = p->next;
-            delete temp;
-        }
-    }
-
 
     // customed algorithm for loop_iterator
     template<class EleType, class Pred>
@@ -383,7 +425,6 @@ namespace dyb
         loop_iterator<EleType> last,
         Pred pred)
     {
-        cout << "dyb version" << endl;
         bool tag = first == last;
         auto next = first; ++next;
         while (tag || first != last)
@@ -394,6 +435,22 @@ namespace dyb
             tag = false;
         }
         return typename loop_iterator<EleType>(nullptr);
+    }
+
+    template<class EleType, class Function>
+    Function for_each(
+        loop_iterator<EleType> first,
+        loop_iterator<EleType> last,
+        Function func)
+    {
+        bool tag = first == last;
+        while (tag || first != last)
+        {
+            func(*first);
+            ++first;
+            tag = false;
+        }
+        return std::move(func);
     }
 
 }

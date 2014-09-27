@@ -160,10 +160,41 @@ void test_erase_loop_iter()
 }
 
 // helper function
-void test_constructor()
+void test_constructor_operator()
 {
     circular_list<int> cl = { 0, 1, 2 };
     TEST(equal(begin(cl), end(cl), begin({ 0, 1, 2 })));
+
+    // copy constructor
+    circular_list<int> a = cl;
+    TEST(equal(begin(a), end(a), begin({ 0, 1, 2 })));
+    TEST(a.size() == 3);
+    TEST(equal(begin(cl), end(cl), begin({ 0, 1, 2 })));
+    TEST(cl.size() == 3);
+
+    // move constructor
+    a.insert(end(a), 3);
+    circular_list<int> b = std::move(a);
+    TEST(equal(begin(b), end(b), begin({ 0, 1, 2, 3 })));
+    TEST(b.size() == 4);
+    TEST(equal(begin(a), end(a), begin(list<int>{})));
+    TEST(a.size() == 0);
+
+    // operator =
+    b.insert(begin(b), 9);
+    TEST(equal(begin(b), end(b), begin({ 9, 0, 1, 2, 3 })));
+    a = b;
+    TEST(equal(begin(b), end(b), begin({ 9, 0, 1, 2, 3 })));
+    TEST(b.size() == 5);
+    TEST(equal(begin(a), end(a), begin({ 9, 0, 1, 2, 3 })));
+    TEST(a.size() == 5);
+
+    // move operator =
+    a = std::move(cl);
+    TEST(equal(begin(a), end(a), begin({ 0, 1, 2 })));
+    TEST(a.size() == 3);
+    TEST(equal(begin(cl), end(cl), begin(list<int>{})));
+    TEST(cl.size() == 0);
 }
 
 void test_adjacent_find()
@@ -181,6 +212,18 @@ void test_adjacent_find()
     TEST(dyb::adjacent_find(cl.loop_begin(), cl.loop_end(), f) == ++cl.loop_begin());
 }
 
+void test_for_each()
+{
+    circular_list<int> cl;
+    for (int i = 0; i < 4; i++)
+    {
+        cl.insert(end(cl), i);
+    }
+    TEST(equal(begin(cl), end(cl), begin({0, 1, 2, 3})));
+    for_each(cl.loop_begin(), cl.loop_end(), [](int & n){ ++n; });
+    TEST(equal(begin(cl), end(cl), begin({ 1, 2, 3, 4 })));
+}
+
 int main()
 {
     // core function
@@ -190,10 +233,11 @@ int main()
     test_insert_loop_iter();
     test_erase();
     test_erase_loop_iter();
+    test_constructor_operator();
 
     // helper function
-    test_constructor();
     test_adjacent_find();
+    test_for_each();
 
     cout << "all tests passed" << endl;
     return 0;

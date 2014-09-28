@@ -19,6 +19,7 @@ using dyb::circular_list;
 // core function
 void test_exist()
 {
+    cout << "test_exist" << endl;
     using std::equal;
     circular_list<int> cl;
     for (int i = 0; i < 3; i++) cl.insert(end(cl), i);
@@ -39,6 +40,7 @@ void test_exist()
 
 void test_find_if()
 {
+    cout << "test_find_if" << endl;
     using std::equal;
     circular_list<int> cl;
     for (int i = 0; i < 3; i++) cl.insert(end(cl), i);
@@ -71,6 +73,7 @@ void test_find_if()
 
 void test_insert()
 {
+    cout << "test_insert" << endl;
     using std::equal;
     circular_list<int> cl;
     TEST(cl.size() == 0);
@@ -94,6 +97,7 @@ void test_insert()
 
 void test_insert_loop_iter()
 {
+    cout << "test_insert_loop_iter" << endl;
     using std::equal;
     circular_list<int> cl;
     TEST(cl.size() == 0);
@@ -117,6 +121,7 @@ void test_insert_loop_iter()
 
 void test_erase()
 {
+    cout << "test_erase" << endl;
     using std::equal;
     circular_list<int> cl;
     for (int i = 0; i < 3; i++) cl.insert(end(cl), i);
@@ -137,6 +142,7 @@ void test_erase()
 
 void test_erase_loop_iter()
 {
+    cout << "test_erase_loop_iter" << endl;
     using std::equal;
     circular_list<int> cl;
     for (int i = 0; i < 4; i++) cl.insert(end(cl), i);
@@ -162,6 +168,7 @@ void test_erase_loop_iter()
 // helper function
 void test_constructor_operator()
 {
+    cout << "test_constructor_operator" << endl;
     circular_list<int> cl = { 0, 1, 2 };
     TEST(equal(begin(cl), end(cl), begin({ 0, 1, 2 })));
 
@@ -199,6 +206,7 @@ void test_constructor_operator()
 
 void test_adjacent_find()
 {
+    cout << "test_adjacent_find" << endl;
     circular_list<int> cl;
     for (int i = 0; i < 3; i++)
         cl.insert(end(cl), i);
@@ -214,6 +222,7 @@ void test_adjacent_find()
 
 void test_for_each()
 {
+    cout << "test_for_each" << endl;
     circular_list<int> cl;
     for (int i = 0; i < 4; i++)
     {
@@ -222,6 +231,46 @@ void test_for_each()
     TEST(equal(begin(cl), end(cl), begin({0, 1, 2, 3})));
     for_each(cl.loop_begin(), cl.loop_end(), [](int & n){ ++n; });
     TEST(equal(begin(cl), end(cl), begin({ 1, 2, 3, 4 })));
+}
+
+void test_common_iter_const()
+{
+    cout << "test_common_iter_const" << endl;
+    struct obj
+    {
+        int func() { return 0; }
+        int func() const { return 1; }
+    };
+    const circular_list<obj> c = { obj(), obj(), obj() };
+    circular_list<obj> nc = { obj(), obj(), obj() };
+    TEST(begin(nc)->func() == 0);
+    for (auto & o : nc)
+        TEST(o.func() == 0);
+    for (auto o : nc)
+        TEST(o.func() == 0);
+
+    TEST(begin(c)->func() == 1);
+    for (auto & o : c)
+        TEST(o.func() == 1);
+    for (auto o : c)
+        TEST(o.func() == 0);
+}
+
+void test_loop_iter_const()
+{
+    cout << "test_loop_iter_const" << endl;
+    struct obj
+    {
+        int func() { return 0; }
+        int func() const { return 1; }
+    };
+    const circular_list<obj> c = { obj(), obj(), obj() };
+    circular_list<obj> nc = { obj(), obj(), obj() };
+    TEST(nc.loop_begin()->func() == 0);
+    TEST(nc.loop_end()->func() == 0);
+
+    TEST(c.loop_begin()->func() == 1);
+    TEST(c.loop_end()->func() == 1);
 }
 
 int main()
@@ -234,7 +283,9 @@ int main()
     test_erase();
     test_erase_loop_iter();
     test_constructor_operator();
-
+    test_common_iter_const();
+    test_loop_iter_const();
+    
     // helper function
     test_adjacent_find();
     test_for_each();

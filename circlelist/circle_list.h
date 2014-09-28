@@ -1,6 +1,7 @@
 #ifndef DYB_CIRCLE_LIST
 #define DYB_CIRCLE_LIST
 
+#include <type_traits>
 #include <initializer_list>
 #include <functional>
 #include <algorithm>
@@ -58,11 +59,14 @@ namespace dyb
         }
     };
 
-    template<class EleType>
+    template<class EleType, bool is_const>
     class common_iterator : public std::iterator<std::forward_iterator_tag, EleType>
     {
     public:
         typedef double_linked_list_node<EleType> node;
+        // both const and non const
+        typedef typename std::conditional<is_const, const EleType, EleType>::type cncEleType;
+        typedef typename std::conditional<is_const, const node, node>::type cncNode;
 
         explicit common_iterator(const node * head_node)
             : _ptr(nullptr), _head(head_node)
@@ -76,7 +80,7 @@ namespace dyb
 
         common_iterator & operator ++ ()
         {
-            // _ptr should not be null
+            CHECKNULL(_ptr);
             if (_ptr->next == _head) _ptr = nullptr;
             else _ptr = _ptr->next;
             return *this;
@@ -84,6 +88,7 @@ namespace dyb
 
         common_iterator operator ++ (int)
         {
+            CHECKNULL(_ptr);
             common_iterator temp(*this);
             if (_ptr->next == _head) _ptr = nullptr;
             else _ptr = _ptr->next;
@@ -100,34 +105,42 @@ namespace dyb
             return !(*this == other);
         }
 
-        EleType & operator * ()
+        cncEleType & operator * ()
         {
+            CHECKNULL(_ptr);
             return _ptr->_ele;
         }
 
-        EleType * operator -> ()
+        cncEleType * operator -> ()
+        {
+            CHECKNULL(_ptr);
+            return &(_ptr->_ele);
+        }
+
+        cncNode * get() const
         {
             return _ptr;
         }
 
-        node * get() const
-        {
-            return _ptr;
-        }
+        friend class common_iterator<EleType, true>;
 
     private:
         node * _ptr;
         const node * _head;
     };
 
-    template<class EleType>
+    template<class EleType, bool is_const>
     class loop_iterator : public std::iterator<std::forward_iterator_tag, EleType>
     {
     public:
         typedef double_linked_list_node<EleType> node;
+        // both const and non const
+        typedef typename std::conditional<is_const, const EleType, EleType>::type cncEleType;
+        typedef typename std::conditional<is_const, const node, node>::type cncNode;
         loop_iterator()
             : _ptr(nullptr)
-        {}
+        {
+        }
 
         explicit loop_iterator(node * p_node)
             : _ptr(p_node)
@@ -136,13 +149,14 @@ namespace dyb
 
         loop_iterator & operator ++ () // should not be called when _ptr == nullptr
         {
+            CHECKNULL(_ptr);
             _ptr = _ptr->next;
-            //cout << _ptr->_ele << ' ' << _ptr->next->_ele << endl;
             return *this;
         }
 
         loop_iterator operator++ (int)
         {
+            CHECKNULL(_ptr);
             node * temp = _ptr;
             _ptr = _ptr->next;
             return temp;
@@ -157,45 +171,58 @@ namespace dyb
             return _ptr != other._ptr;
         }
 
-        EleType & operator * ()
+        cncEleType & operator * ()
         {
+            CHECKNULL(_ptr);
             return _ptr->_ele;
         }
 
-        EleType * operator -> ()
+        cncEleType * operator -> ()
+        {
+            CHECKNULL(_ptr);
+            return &(_ptr->_ele);
+        }
+
+        cncNode * get() const
         {
             return _ptr;
         }
 
-        node * get() const
-        {
-            return _ptr;
-        }
+        friend class loop_iterator<EleType, true>;
+
     private:
         node * _ptr;
     };
 
     // comparasion between common_iterator and loop_iterator
-    template<class EleType>
-    bool operator == (const common_iterator<EleType> & lhs, const loop_iterator<EleType> & rhs)
+    template<class EleType, bool common_iter_is_const, bool loop_iter_is_const>
+    bool operator == (
+        const common_iterator<EleType, common_iter_is_const> & lhs,
+        const loop_iterator<EleType, loop_iter_is_const> & rhs)
     {
         return lhs.get() == rhs.get();
     }
 
-    template<class EleType>
-    bool operator == (const loop_iterator<EleType> & lhs, const common_iterator<EleType> & rhs)
+    template<class EleType, bool common_iter_is_const, bool loop_iter_is_const>
+    bool operator == (
+        const loop_iterator<EleType, loop_iter_is_const> & lhs,
+        const common_iterator<EleType, common_iter_is_const> & rhs)
     {
         return rhs == lhs;
     }
 
-    template<class EleType>
-    bool operator != (const common_iterator<EleType> & lhs, const loop_iterator<EleType> & rhs)
+    template<class EleType, bool common_iter_is_const, bool loop_iter_is_const>
+    bool operator != (
+        const common_iterator<EleType, common_iter_is_const> & lhs,
+        const loop_iterator<EleType, loop_iter_is_const> & rhs)
     {
         return lhs.get() != rhs.get();
     }
 
-    template<class EleType>
-    bool operator != (const loop_iterator<EleType> & lhs, const common_iterator<EleType> & rhs)
+    template<class EleType, bool common_iter_is_const, bool loop_iter_is_const>
+    bool operator != (
+        const loop_iterator<EleType, loop_iter_is_const> & lhs,
+        const common_iterator<EleType, common_iter_is_const> & rhs)
     {
         return rhs != lhs;
     }
@@ -206,9 +233,12 @@ namespace dyb
     {
     public:
         typedef double_linked_list_node<EleType> node;
-        typedef common_iterator<EleType> iterator;
-        typedef common_iterator<EleType> common_iter;
-        typedef loop_iterator<EleType> loop_iter;
+        typedef common_iterator<EleType, false> iterator;
+        typedef common_iterator<EleType, true> const_iterator;
+        typedef common_iterator<EleType, false> common_iter;
+        typedef common_iterator<EleType, true> const_common_iter;
+        typedef loop_iterator<EleType, false> loop_iter;
+        typedef loop_iterator<EleType, true> const_loop_iter;
 
         // helper function
         circular_list(std::initializer_list<EleType> _initList)
@@ -220,7 +250,7 @@ namespace dyb
         }
 
         // since const iterator is not implemented so use non const reference
-        circular_list(circular_list & other)
+        circular_list(const circular_list & other)
             : head(nullptr), _size(other._size)
         {
             for (auto & ele : other)
@@ -237,8 +267,9 @@ namespace dyb
             other._size = 0;
         }
 
-        circular_list & operator = (circular_list & other)
+        circular_list & operator = (const circular_list & other)
         {
+            DEBUGCHECK(this != &other, "assignment to self");
             clear();
             _size = other._size;
             for (auto & ele : other)
@@ -251,6 +282,7 @@ namespace dyb
         // move assignment
         circular_list & operator = (circular_list && other)
         {
+            DEBUGCHECK(this != &other, "assignment to self");
             clear();
             head = other.head;
             other.head = nullptr;
@@ -314,8 +346,14 @@ namespace dyb
         size_t size() const { return _size; }
         common_iter begin() { return common_iter(head, head); }
         common_iter end() { return common_iter(head, nullptr); }
+        const_common_iter begin() const { return const_common_iter(head, head); }
+        const_common_iter end() const { return const_common_iter(head, nullptr); }
+
         loop_iter loop_begin() { return loop_iter(head); }
         loop_iter loop_end() { return loop_iter(head); }
+        const_loop_iter loop_begin() const { return const_loop_iter(head); }
+        const_loop_iter loop_end() const { return const_loop_iter(head); }
+
         circular_list() = default;
 
     private:
@@ -391,16 +429,19 @@ namespace dyb
     // work for loop_iterator
     template<class EleType>
     typename circular_list<EleType>::node * circular_list<EleType>::find_if(
-        typename circular_list<EleType>::node * _begin,
-        typename circular_list<EleType>::node * _end,
+        typename circular_list<EleType>::node * first,
+        typename circular_list<EleType>::node * last,
         function<bool(const EleType &)> pred)
     {
-        bool tag = _begin == _end;
-        for (typename circular_list<EleType>::node * p = _begin; p != _end || tag; p = p->next)
+        // precondition: both first and last point to a node of the same circular_list
+        DEBUGCHECK(exist(first), "invalid first pointer");
+        DEBUGCHECK(exist(last), "invalid last pointer");
+        CHECKNULL(pred);
+        do
         {
-            if (pred(p->_ele)) return p;
-            tag = false;
-        }
+            if (pred(first->_ele)) return first;
+            first = first->next;
+        } while (first != last);
         return nullptr;
     }
 
@@ -419,37 +460,34 @@ namespace dyb
 
 
     // customed algorithm for loop_iterator
-    template<class EleType, class Pred>
-    typename loop_iterator<EleType> adjacent_find(
-        loop_iterator<EleType> first, 
-        loop_iterator<EleType> last,
+    template<class EleType, class Pred, bool is_const>
+    typename loop_iterator<EleType, is_const> adjacent_find(
+        loop_iterator<EleType, is_const> first, 
+        loop_iterator<EleType, is_const> last,
         Pred pred)
     {
-        bool tag = first == last;
         auto next = first; ++next;
-        while (tag || first != last)
+        do
         {
-            if (pred(*first, *next)) return first;
+            if (pred(*first, *next))
+                return first;
             ++first;
             ++next;
-            tag = false;
-        }
-        return typename loop_iterator<EleType>(nullptr);
+        } while (first != last);
+        return loop_iterator<EleType, is_const>(nullptr);
     }
 
-    template<class EleType, class Function>
+    template<class EleType, class Function, bool is_const>
     Function for_each(
-        loop_iterator<EleType> first,
-        loop_iterator<EleType> last,
+        loop_iterator<EleType, is_const> first,
+        loop_iterator<EleType, is_const> last,
         Function func)
     {
-        bool tag = first == last;
-        while (tag || first != last)
+        do
         {
             func(*first);
             ++first;
-            tag = false;
-        }
+        } while (first != last);
         return std::move(func);
     }
 

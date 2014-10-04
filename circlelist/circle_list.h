@@ -491,6 +491,22 @@ namespace dyb
         return std::move(func);
     }
 
+    template<class EleType, class Function, bool is_const>
+    Function for_adjacent(
+        loop_iterator<EleType, is_const> first,
+        loop_iterator<EleType, is_const> last,
+        Function func)
+    {
+        auto next = first; ++next;
+        do
+        {
+            func(*first, *next);
+            ++first;
+            ++next;
+        } while (first != last);
+        return std::move(func);
+    }
+
 }
 
 #endif

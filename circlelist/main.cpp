@@ -273,6 +273,22 @@ void test_loop_iter_const()
     TEST(c.loop_end()->func() == 1);
 }
 
+void test_for_adjacent()
+{
+    cout << "test_for_adjacent" << endl;
+    circular_list<int> cl = { 0, 1, 2, 3 };
+    dyb::for_adjacent(cl.loop_begin(), cl.loop_end(), [](int curr, int next){
+        if (curr == 3)
+        {
+            TEST(next == 0);
+        }
+        else
+        {
+            TEST(curr == next - 1);
+        }
+    });
+}
+
 int main()
 {
     // core function
@@ -289,6 +305,7 @@ int main()
     // helper function
     test_adjacent_find();
     test_for_each();
+    test_for_adjacent();
 
     cout << "all tests passed" << endl;
     return 0;
